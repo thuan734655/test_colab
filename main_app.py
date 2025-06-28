@@ -2151,10 +2151,30 @@ def generate_subtitles(task_id):
             # The `fp16` parameter in `transcribe` should match the model's precision.
             # We dynamically set it based on whether the loaded model is FP16.
             transcription_language = language
-            if transcription_language == 'auto':
-                transcription_language = None
             
-            # Pass the correct fp16 flag based on the model's loaded precision
+            # Bugfix for Whisper's language detection with FP16 models.
+            # Manually detect language to avoid internal dtype mismatch error.
+            if transcription_language == 'auto' or transcription_language is None:
+                logger.info("Performing manual language detection for FP16 model...")
+                try:
+                    # Load audio and create a mel spectrogram for detection
+                    audio_for_detection = whisper.load_audio(audio_path)
+                    audio_for_detection = whisper.pad_or_trim(audio_for_detection)
+                    mel = whisper.log_mel_spectrogram(audio_for_detection).to(model.device)
+
+                    # Convert mel to fp16 if the model is fp16
+                    if is_fp16:
+                        mel = mel.half()
+
+                    _, probs = model.detect_language(mel)
+                    detected_language = max(probs, key=probs.get)
+                    transcription_language = detected_language
+                    logger.info(f"Language manually detected: {transcription_language}")
+                except Exception as e:
+                    logger.error(f"Manual language detection failed: {e}. Proceeding without language hint.")
+                    transcription_language = None # Let whisper try again, might fail
+            
+            # Pass the correct fp16 flag and the detected language
             result = model.transcribe(audio_path, language=transcription_language, verbose=True, fp16=is_fp16)
             
             # Memory cleanup after transcription
