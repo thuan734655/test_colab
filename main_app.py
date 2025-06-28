@@ -586,33 +586,56 @@ def check_all_segments_successful(audio_segments, total_segments):
     
     return all_successful, success_count, fail_count
 
-# Enhanced GPU detection and optimization
-def get_optimal_device():
-    """Get optimal device for processing with GPU optimization"""
-    if torch.cuda.is_available():
-        # Clear GPU cache for optimal performance
-        torch.cuda.empty_cache()
-        # Enable GPU optimizations
-        torch.backends.cudnn.benchmark = True
-        torch.backends.cudnn.deterministic = False
-        return "cuda"
-    return "cpu"
+# === GPU Management System ===
 
-device = get_optimal_device()
+class GPUManager:
+    """Manages GPU resources and optimizations for PyTorch."""
+    def __init__(self):
+        self.device = None
+        self.gpu_info = "No GPU available"
+        self.vram_total = 0
+        self.is_t4 = False
+        self._initialize_device()
 
-# GPU Configuration - Load if exists
-try:
-    import json
-    with open('gpu_config.json', 'r') as f:
-        GPU_CONFIG = json.load(f)
-        logger.info("GPU config loaded")
-except FileNotFoundError:
-    GPU_CONFIG = {
-        "gpu_acceleration": torch.cuda.is_available(),
-        "whisper_device": device,
-        "ffmpeg_gpu_encoder": "h264_nvenc" if torch.cuda.is_available() else "libx264",
-        "memory_optimization": True
-    }
+    def _initialize_device(self):
+        """Initializes the best available device (CUDA, MPS, CPU)."""
+        if torch.cuda.is_available():
+            self.device = torch.device("cuda")
+            props = torch.cuda.get_device_properties(0)
+            self.vram_total = props.total_memory / (1024**3)
+            self.gpu_info = f"{props.name} (VRAM: {self.vram_total:.2f} GB)"
+            logger.info(f"CUDA device selected: {self.gpu_info}")
+            if 'T4' in props.name:
+                self.is_t4 = True
+                logger.info("NVIDIA T4 GPU detected. Enabling FP16 optimizations.")
+        elif torch.backends.mps.is_available():
+            self.device = torch.device("mps")
+            self.gpu_info = "Apple Metal Performance Shaders (MPS)"
+            logger.info("MPS device selected.")
+        else:
+            self.device = torch.device("cpu")
+            self.gpu_info = "CPU"
+            logger.info("No GPU found, falling back to CPU.")
+
+    def get_device(self):
+        """Returns the initialized torch.device."""
+        return self.device
+
+    def get_info(self):
+        """Returns a string with information about the active device."""
+        return self.gpu_info
+
+    def get_vram_gb(self):
+        """Returns total VRAM in GB if a CUDA device is active."""
+        return self.vram_total
+
+    def should_use_fp16(self):
+        """Determines if FP16 precision should be used. True for T4 GPUs."""
+        return self.is_t4
+
+# Initialize GPU Manager
+gpu_manager = GPUManager()
+device = gpu_manager.get_device()
 
 # Supported languages
 LANGUAGES = {
@@ -645,42 +668,41 @@ def allowed_file(filename, extensions):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in extensions
 
 def get_whisper_model(model_name):
-    """Load hoặc get cached Whisper model with GPU optimization"""
+    """Loads a Whisper model, caches it, and handles device placement and precision."""
     global whisper_models
-    
-    if model_name not in whisper_models:
-        logger.info(f"Loading Whisper model: {model_name}")
-        try:
-            # GPU memory optimization
-            if device == "cuda" and GPU_CONFIG.get("memory_optimization", True):
-                torch.cuda.empty_cache()
-                import gc
-                gc.collect()
-            
-            # Load model on optimal device
-            model = whisper.load_model(model_name, device=device)
-            
-            # GPU-specific optimizations
-            if device == "cuda":
-                # Use mixed precision for faster inference
-                try:
-                    model = model.half()  # Convert to FP16
-                    logger.info(f"Model converted to FP16 for GPU acceleration")
-                except:
-                    logger.warning("FP16 conversion failed, using FP32")
-            
-            whisper_models[model_name] = model
-            logger.info(f"Whisper model {model_name} loaded successfully on {device}")
-            
-            # Log GPU memory usage
-            if device == "cuda":
-                gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1024**3
-                gpu_allocated = torch.cuda.memory_allocated(0) / 1024**3
-                logger.info(f"GPU memory: {gpu_allocated:.1f}GB / {gpu_memory:.1f}GB")
-                
-        except Exception as e:
-            logger.error(f"Failed to load Whisper model {model_name}: {e}")
-            raise
+    target_device = gpu_manager.get_device()
+
+    # Check cache first
+    if model_name in whisper_models:
+        cached_model = whisper_models[model_name]
+        # Ensure the cached model is on the correct device
+        if str(cached_model.device) == str(target_device):
+            logger.info(f"Using cached Whisper model '{model_name}' on {target_device}")
+            return cached_model
+        else:
+            logger.info(f"Device changed. Moving cached model '{model_name}' to {target_device}")
+            cached_model.to(target_device)
+            return cached_model
+
+    logger.info(f"Loading Whisper model '{model_name}' onto device: {target_device}")
+    try:
+        model = whisper.load_model(model_name, device=target_device)
+        
+        # Apply optimizations if on a capable GPU
+        if target_device.type == 'cuda' and gpu_manager.should_use_fp16():
+            try:
+                model = model.half()
+                logger.info("Model successfully converted to FP16 for T4 GPU.")
+            except Exception as e:
+                logger.warning(f"Could not convert model to FP16: {e}. Proceeding with FP32.")
+        
+        logger.info(f"Whisper model '{model_name}' loaded successfully.")
+        whisper_models[model_name] = model
+        return model
+
+    except Exception as e:
+        logger.error(f"Fatal error loading Whisper model '{model_name}': {e}", exc_info=True)
+        return None
     
     return whisper_models[model_name]
 
@@ -2112,65 +2134,24 @@ def generate_subtitles(task_id):
                 'current_step': 'Transcribing audio...'
             })
             
-            # GPU-optimized transcription
-            transcribe_options = {
-                'word_timestamps': True,
-                'verbose': False
-            }
-            
-            if language != 'auto':
-                transcribe_options['language'] = language
-            
-            # GPU-specific optimizations
-            if device == "cuda":
-                logger.info("Attempting GPU-optimized transcription")
-                try:
-                    # Load audio and convert to tensor on the correct device
-                    audio = whisper.load_audio(audio_path)
-                    audio = torch.from_numpy(audio).to(device)
-                    
-                    # Check if the model is in FP16 (half precision)
-                    is_half = next(model.parameters()).dtype == torch.float16
-                    
-                    if is_half:
-                        logger.info("Model is in FP16. Converting audio tensor to half precision.")
-                        audio = audio.half()
-                        transcribe_options['fp16'] = True
-                    else:
-                        logger.info("Model is in FP32. Using standard float precision for audio.")
-                        transcribe_options['fp16'] = False
+            # Perform transcription using the robust model loading logic
+            if not model:
+                raise Exception(f"Whisper model '{model_name}' could not be loaded.")
 
-                    logger.info(f"Starting transcription on {device} with model {model_name}")
-                    start_time = time.time()
-                    result = model.transcribe(audio, **transcribe_options)
-                    transcription_time = time.time() - start_time
-                    logger.info(f"Transcription completed in {transcription_time:.2f}s")
+            # Log GPU memory usage if applicable
+            if gpu_manager.get_device().type == 'cuda':
+                vram_used = torch.cuda.memory_allocated(0) / (1024**3)
+                logger.info(f"GPU memory before transcription: {vram_used:.2f}GB / {gpu_manager.get_vram_gb():.2f}GB")
 
-                except Exception as fp_e:
-                    logger.warning(f"GPU-optimized (FP16) transcription failed: {fp_e}. Converting model to FP32 and retrying.")
-                    
-                    # Convert model to FP32 for fallback
-                    model.float()
-                    
-                    # Ensure audio tensor is also FP32
-                    audio = whisper.load_audio(audio_path)
-                    audio = torch.from_numpy(audio).to(device) # Default is float32
-                    
-                    transcribe_options['fp16'] = False
-                    
-                    logger.info("Retrying transcription with model and audio in FP32.")
-                    start_time = time.time()
-                    result = model.transcribe(audio, **transcribe_options)
-                    transcription_time = time.time() - start_time
-                    logger.info(f"FP32 fallback transcription completed in {transcription_time:.2f}s")
-            else:
-                # CPU transcription
-                logger.info(f"Starting CPU transcription with model {model_name}")
-                transcribe_options['fp16'] = False
-                start_time = time.time()
-                result = whisper.transcribe(model, audio_path, **transcribe_options)
-                transcription_time = time.time() - start_time
-                logger.info(f"CPU transcription completed in {transcription_time:.2f}s")
+            is_fp16 = any(p.dtype == torch.float16 for p in model.parameters())
+            precision = "FP16" if is_fp16 else "FP32"
+
+            logger.info(f"Starting transcription on {gpu_manager.get_info()} with {precision} precision.")
+
+            # The `fp16` parameter in `transcribe` can be problematic.
+            # It's more reliable to manage model precision beforehand.
+            # We pass `fp16=False` to avoid whisper's internal auto-casting.
+            result = model.transcribe(audio_path, language=language, verbose=True, fp16=False)
             
             # Memory cleanup after transcription
             if GPU_CONFIG.get("memory_optimization", True):
