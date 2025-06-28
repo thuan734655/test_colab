@@ -2150,11 +2150,12 @@ def generate_subtitles(task_id):
 
             # The `fp16` parameter in `transcribe` should match the model's precision.
             # We dynamically set it based on whether the loaded model is FP16.
-            if language == 'auto':
-                language = None
+            transcription_language = language
+            if transcription_language == 'auto':
+                transcription_language = None
             
             # Pass the correct fp16 flag based on the model's loaded precision
-            result = model.transcribe(audio_path, language=language, verbose=True, fp16=is_fp16)
+            result = model.transcribe(audio_path, language=transcription_language, verbose=True, fp16=is_fp16)
             
             # Memory cleanup after transcription
             if GPU_CONFIG.get("memory_optimization", True):
