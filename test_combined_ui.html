@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo UI Gộp Chức Năng</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            padding: 20px;
+        }
+
+        .demo-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #404040;
+        }
+
+        .main-action {
+            text-align: center;
+        }
+
+        .action-description {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .action-description p {
+            color: #00d4ff;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .action-description ul {
+            text-align: left;
+            color: #cccccc;
+        }
+
+        .action-description li {
+            padding: 3px 0;
+        }
+
+        .quick-settings {
+            margin-bottom: 20px;
+        }
+
+        .setting-row {
+            margin-bottom: 15px;
+        }
+
+        .setting-row label {
+            display: block;
+            color: #cccccc;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .setting-row select {
+            width: 100%;
+            padding: 8px 12px;
+            background: #404040;
+            color: white;
+            border: 1px solid #666;
+            border-radius: 6px;
+        }
+
+        .btn-large {
+            padding: 15px 25px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 8px;
+            text-align: center;
+            flex-direction: column;
+            gap: 5px;
+            min-height: 80px;
+            box-shadow: 0 4px 15px rgba(0, 204, 102, 0.3);
+            background: linear-gradient(135deg, #00cc66, #009944);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        .btn-large:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 204, 102, 0.4);
+        }
+
+        .btn-large small {
+            font-size: 12px;
+            opacity: 0.9;
+            font-weight: 400;
+        }
+
+        .progress-container {
+            margin-top: 20px;
+            display: none;
+        }
+
+        .progress-bar {
+            background: #404040;
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, #00d4ff, #00cc66);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 5px;
+            color: #cccccc;
+        }
+
+        .progress-message {
+            margin-top: 8px;
+            font-size: 13px;
+            color: #00d4ff;
+            font-style: italic;
+            text-align: center;
+        }
+
+        .demo-info {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="demo-info">
+            <h3>🎯 Demo UI Gộp Chức Năng</h3>
+            <p>Đây là giao diện mới - chỉ cần 1 nút để làm tất cả!</p>
+        </div>
+
+        <div class="main-action">
+            <div class="action-description">
+                <p><strong>Một nút - Làm tất cả!</strong></p>
+                <ul>
+                    <li>✅ Tạo lồng tiếng AI từ phụ đề</li>
+                    <li>✅ Ghép lồng tiếng vào video</li>
+                    <li>✅ Thêm phụ đề hiển thị</li>
+                    <li>✅ Xuất video hoàn chỉnh</li>
+                </ul>
+            </div>
+            
+            <div class="quick-settings">
+                <div class="setting-row">
+                    <label>Ngôn ngữ lồng tiếng:</label>
+                    <select id="voice-language">
+                        <option value="vi">🇻🇳 Tiếng Việt</option>
+                        <option value="en">🇺🇸 English</option>
+                        <option value="zh">🇨🇳 中文</option>
+                        <option value="ja">🇯🇵 日本語</option>
+                        <option value="ko">🇰🇷 한국어</option>
+                        <option value="th">🇹🇭 ไทย</option>
+                        <option value="fr">🇫🇷 Français</option>
+                        <option value="es">🇪🇸 Español</option>
+                        <option value="de">🇩🇪 Deutsch</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <label>Giọng nói:</label>
+                    <select id="voice-type">
+                        <option value="female">🎤 Nữ (HoaiMy)</option>
+                        <option value="male">🎤 Nam (NamMinh)</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn-large" id="create-video-btn" onclick="demoProgress()">
+                <i class="fas fa-magic"></i>
+                <span>TẠO VIDEO HOÀN CHỈNH</span>
+                <small>Lồng tiếng + Phụ đề + Xuất video</small>
+            </button>
+            
+            <div class="progress-container" id="combined-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-text" id="progress-text">0%</div>
+                <div class="progress-message" id="progress-message">Đang xử lý...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    <script>
+        function demoProgress() {
+            const btn = document.getElementById('create-video-btn');
+            const progress = document.getElementById('combined-progress');
+            const progressFill = document.getElementById('progress-fill');
+            const progressText = document.getElementById('progress-text');
+            const progressMessage = document.getElementById('progress-message');
+
+            // Disable button
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>ĐANG XỬ LÝ...</span><small>Vui lòng đợi</small>';
+            
+            // Show progress
+            progress.style.display = 'block';
+            
+            // Simulate progress steps
+            const steps = [
+                { progress: 10, message: 'Bắt đầu tạo video hoàn chỉnh...' },
+                { progress: 30, message: 'Đang tạo lồng tiếng AI...' },
+                { progress: 60, message: 'Đang xử lý âm thanh...' },
+                { progress: 80, message: 'Đang ghép lồng tiếng vào video...' },
+                { progress: 95, message: 'Đang hoàn thiện video...' },
+                { progress: 100, message: 'Hoàn thành!' }
+            ];
+
+            let currentStep = 0;
+            const interval = setInterval(() => {
+                if (currentStep < steps.length) {
+                    const step = steps[currentStep];
+                    progressFill.style.width = step.progress + '%';
+                    progressText.textContent = step.progress + '%';
+                    progressMessage.textContent = step.message;
+                    
+                    if (step.progress === 100) {
+                        setTimeout(() => {
+                            // Reset
+                            progress.style.display = 'none';
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-magic"></i><span>TẠO VIDEO HOÀN CHỈNH</span><small>Lồng tiếng + Phụ đề + Xuất video</small>';
+                            alert('🎉 Demo hoàn thành! Video đã sẵn sàng tải về.');
+                        }, 1000);
+                        clearInterval(interval);
+                    }
+                    currentStep++;
+                }
+            }, 800);
+        }
+    </script>
+</body>
+</html> 

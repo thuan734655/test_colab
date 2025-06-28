@@ -1,0 +1,10 @@
+{
+  "performance_mode": "cpu_optimized",
+  "recommended_whisper_model": "large-v3",
+  "max_concurrent_processes": 4,
+  "ffmpeg_threads": 12,
+  "batch_size": 16,
+  "memory_limit_gb": 18.995962524414065,
+  "temp_cleanup": true,
+  "progress_monitoring": true
+}

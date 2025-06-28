@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Video Editor - Tạo phụ đề và lồng tiếng</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <i class="fas fa-video"></i>
+                    <span>AI Video Editor</span>
+                    <small style="color: #00d4ff; font-size: 10px; margin-left: 5px;">🎤 TTS Ready</small>
+                </div>
+            </div>
+            <div class="header-center">
+                <div class="project-info">
+                    <span id="project-name">Dự án mới</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="btn btn-primary" id="export-btn" disabled>
+                    <i class="fas fa-download"></i>
+                    Xuất video
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Panel - Tools -->
+            <div class="left-panel">
+                <div class="tool-section">
+                    <h3><i class="fas fa-cloud-upload-alt"></i> Upload Video</h3>
+                    <div class="upload-area" id="upload-area">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Kéo thả file video vào đây hoặc</p>
+                        <button class="btn btn-secondary" id="select-file-btn">Chọn file</button>
+                        <input type="file" id="video-input" accept="video/*" style="display: none;">
+                        <div class="upload-info">
+                            <small>Hỗ trợ: MP4, AVI, MOV, MKV, WEBM (tối đa 5GB)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tool-section">
+                    <h3><i class="fas fa-closed-captioning"></i> Tạo phụ đề</h3>
+                    <div class="subtitle-controls">
+                        <div class="subtitle-settings">
+                            <label>Model Whisper:</label>
+                            <select id="whisper-model">
+                                <option value="tiny">Tiny (nhỏ nhất, nhanh)</option>
+                                <option value="base">Base (cân bằng)</option>
+                                <option value="small">Small (tốt)</option>
+                                <option value="medium">Medium (rất tốt)</option>
+                                <option value="large">Large (xuất sắc)</option>
+                                <option value="large-v3" selected>Large-v3 (tốt nhất)</option>
+                            </select>
+                        </div>
+                        <div class="subtitle-settings">
+                            <label>Ngôn ngữ:</label>
+                            <select id="subtitle-language">
+                                <option value="auto">Tự động phát hiện</option>
+                                <option value="vi">Tiếng Việt</option>
+                                <option value="zh">中文 (Tiếng Trung)</option>
+                                <option value="en">English</option>
+                                <option value="ja">日本語 (Tiếng Nhật)</option>
+                                <option value="ko">한국어 (Tiếng Hàn)</option>
+                                <option value="th">ไทย (Tiếng Thái)</option>
+                                <option value="fr">Français</option>
+                                <option value="es">Español</option>
+                                <option value="de">Deutsch</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" id="generate-subtitles-btn" disabled>
+                            <i class="fas fa-magic"></i>
+                            Tạo phụ đề tự động
+                        </button>
+                        <div class="progress-container" id="subtitle-progress" style="display: none;">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 0%"></div>
+                            </div>
+                            <span class="progress-text">0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tool-section">
+                    <h3><i class="fas fa-rocket"></i> Tạo Video Hoàn Chỉnh</h3>
+                    <div class="main-action">
+                        <div class="action-description">
+                            <p><strong>Một nút - Làm tất cả!</strong></p>
+                            <ul style="margin: 10px 0; padding-left: 20px; font-size: 14px;">
+                                <li>✅ Tạo lồng tiếng AI từ phụ đề</li>
+                                <li>✅ Ghép lồng tiếng vào video</li>
+                                <li>✅ Thêm phụ đề hiển thị</li>
+                                <li>✅ Xuất video hoàn chỉnh</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="quick-settings">
+                            <div class="setting-row">
+                                <label>Chọn giọng đọc AI:</label>
+                                <select id="voice-selector" style="width: 100%; font-size: 14px;">
+                                    <option value="">🔄 Đang tải giọng đọc...</option>
+                                </select>
+                                <small id="voice-info" style="display: block; margin-top: 5px; color: #666; font-size: 12px;">
+                                    Chọn từ 60+ giọng đọc AI chất lượng cao
+                                </small>
+                            </div>
+                            <div class="setting-row">
+                                <label>Lọc theo:</label>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <select id="voice-provider-filter" style="flex: 1;">
+                                        <option value="">🎤 Tất cả providers</option>
+                                        <option value="gtts">🆓 gTTS (Miễn phí)</option>
+                                        <option value="edge_tts">🆓 Edge TTS (Miễn phí)</option>
+                                        <option value="openai_tts">🟡 OpenAI (Premium)</option>
+                                        <option value="elevenlabs">🟠 ElevenLabs (Ultra)</option>
+                                        <option value="google_tts">🟡 Google Cloud (Premium)</option>
+                                        <option value="azure_tts">🟡 Azure (Premium)</option>
+                                    </select>
+                                    <select id="voice-language-filter" style="flex: 1;">
+                                        <option value="">🌍 Tất cả ngôn ngữ</option>
+                                        <option value="vi">🇻🇳 Tiếng Việt</option>
+                                        <option value="en">🇺🇸 English</option>
+                                        <option value="zh">🇨🇳 中文</option>
+                                        <option value="ja">🇯🇵 日本語</option>
+                                        <option value="ko">🇰🇷 한국어</option>
+                                        <option value="th">🇹🇭 ไทย</option>
+                                        <option value="fr">🇫🇷 Français</option>
+                                        <option value="es">🇪🇸 Español</option>
+                                        <option value="de">🇩🇪 Deutsch</option>
+                                        <option value="ru">🇷🇺 Русский</option>
+                                        <option value="it">🇮🇹 Italiano</option>
+                                        <option value="pt">🇵🇹 Português</option>
+                                        <option value="ar">🇸🇦 العربية</option>
+                                        <option value="hi">🇮🇳 हिंदी</option>
+                                        <option value="tr">🇹🇷 Türkçe</option>
+                                        <option value="pl">🇵🇱 Polski</option>
+                                        <option value="nl">🇳🇱 Nederlands</option>
+                                        <option value="sv">🇸🇪 Svenska</option>
+                                        <option value="da">🇩🇰 Dansk</option>
+                                        <option value="no">🇳🇴 Norsk</option>
+                                        <option value="fi">🇫🇮 Suomi</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-success btn-large" id="create-video-with-voice-btn" disabled>
+                            <i class="fas fa-magic"></i>
+                            <span>TẠO VIDEO HOÀN CHỈNH</span>
+                            <small>Lồng tiếng + Phụ đề + Xuất video</small>
+                        </button>
+                        
+                        <div class="progress-container" id="combined-progress" style="display: none;">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 0%"></div>
+                            </div>
+                            <span class="progress-text">0%</span>
+                            <div class="progress-message" id="progress-message">Đang xử lý...</div>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Settings (Collapsible) -->
+                    <details class="advanced-settings" style="margin-top: 15px;">
+                        <summary style="cursor: pointer; color: #666; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                            <i class="fas fa-cog"></i> Cài đặt nâng cao (tùy chọn)
+                        </summary>
+                        <div style="margin-top: 10px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background: #fafbfc;">
+                            <div class="voice-settings">
+                                <label>Nguồn phụ đề:</label>
+                                <div class="radio-group">
+                                    <label class="radio-label">
+                                        <input type="radio" name="subtitle-source" value="original" id="source-original" checked>
+                                        <span class="radio-checkmark"></span>
+                                        <span class="radio-text">
+                                            <i class="fas fa-file-alt"></i>
+                                            File .srt gốc
+                                        </span>
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="subtitle-source" value="timeline" id="source-timeline">
+                                        <span class="radio-checkmark"></span>
+                                        <span class="radio-text">
+                                            <i class="fas fa-film"></i>
+                                            Timeline đã chỉnh sửa
+                                        </span>
+                                    </label>
+                                </div>
+                                <div class="source-info" id="source-info">
+                                    <small><i class="fas fa-info-circle"></i> Sẽ sử dụng file .srt gốc chưa chỉnh sửa</small>
+                                </div>
+                            </div>
+                            <div class="voice-settings">
+                                <label>Tốc độ đọc:</label>
+                                <div class="form-group">
+                                                                                <input type="range" id="speech-rate" min="0.5" max="2.0" value="1.5" step="0.1">
+                                            <span id="speech-rate-value">1.5x</span>
+                                </div>
+                                <small>Từ 0.5x (chậm) đến 2.0x (nhanh)</small>
+                            </div>
+                            
+                            <!-- Audio Mixing Settings -->
+                            <div class="audio-mixing-settings" style="margin-top: 15px; padding: 15px; border: 1px solid #e0e0e0; border-radius: 5px; background: #f9f9f9;">
+                                <h4 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">
+                                    <i class="fas fa-volume-up"></i> Cài đặt âm thanh
+                                </h4>
+                                
+                                <div class="voice-settings">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="keep-original-audio" checked>
+                                        <span class="checkmark"></span>
+                                        Giữ lại âm thanh gốc
+                                    </label>
+                                    <small style="display: block; margin-top: 5px; color: #666;">
+                                        Nếu bỏ chọn, video sẽ chỉ có lồng tiếng mới
+                                    </small>
+                                </div>
+                                
+                                <div class="audio-volume-controls" id="audio-volume-controls">
+                                    <div class="voice-settings">
+                                        <label>Âm lượng âm thanh gốc:</label>
+                                        <div class="volume-control">
+                                                                                    <input type="range" id="original-volume" min="0" max="100" step="5" value="10">
+                                        <span id="original-volume-value">10%</span>
+                                        </div>
+                                        <small>Giảm âm thanh gốc để lồng tiếng rõ hơn</small>
+                                    </div>
+                                    
+                                    <div class="voice-settings">
+                                        <label for="voice-volume">Âm lượng lồng tiếng:</label>
+                                        <div class="volume-control">
+                                            <input type="range" id="voice-volume" min="1" max="100" value="83" step="1">
+                                            <span id="voice-volume-value">83%</span>
+                                        </div>
+                                        <small>Điều chỉnh để nghe rõ câu thoại tiếng Việt</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="audio-presets" style="margin-top: 10px;">
+                                    <label>Cài đặt nhanh:</label>
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px;">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary audio-preset" data-original="0" data-voice="100">
+                                            <i class="fas fa-microphone"></i> Chỉ lồng tiếng
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary audio-preset" data-original="20" data-voice="100">
+                                            <i class="fas fa-balance-scale"></i> Lồng tiếng chính
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary audio-preset" data-original="50" data-voice="80">
+                                            <i class="fas fa-equals"></i> Cân bằng
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary audio-preset" data-original="100" data-voice="0">
+                                            <i class="fas fa-music"></i> Chỉ âm thanh gốc
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Advanced individual buttons -->
+                            <div class="advanced-buttons" style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                                <button class="btn btn-outline-primary" id="generate-voice-btn" disabled>
+                                    <i class="fas fa-volume-up"></i>
+                                    Chỉ tạo lồng tiếng
+                                </button>
+                                <button class="btn btn-outline-secondary" id="create-final-video-btn" disabled>
+                                    <i class="fas fa-film"></i>
+                                    Chỉ ghép video
+                                </button>
+                            </div>
+                            
+                            <div class="progress-container" id="voice-progress" style="display: none;">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 0%"></div>
+                                </div>
+                                <span class="progress-text">0%</span>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+
+                <div class="tool-section">
+                    <h3><i class="fas fa-font"></i> Tùy chỉnh phụ đề</h3>
+                    <div class="subtitle-customization">
+                        <div class="subtitle-font-settings">
+                            <label>Font chữ:</label>
+                            <select id="subtitle-font">
+                                <option value="Arial">Arial</option>
+                                <option value="Times New Roman">Times New Roman</option>
+                                <option value="Helvetica">Helvetica</option>
+                                <option value="Georgia">Georgia</option>
+                                <option value="Verdana">Verdana</option>
+                                <option value="Tahoma">Tahoma</option>
+                                <option value="Comic Sans MS">Comic Sans MS</option>
+                            </select>
+                        </div>
+                        <div class="subtitle-font-settings">
+                            <label>Kích thước:</label>
+                            <div class="size-control">
+                                <input type="range" id="subtitle-size" min="12" max="72" value="24">
+                                <span id="subtitle-size-value">24px</span>
+                            </div>
+                        </div>
+                        <div class="subtitle-font-settings">
+                            <label>Màu chữ:</label>
+                            <div class="color-control">
+                                <input type="color" id="subtitle-color" value="#ffffff">
+                                <select id="subtitle-color-preset">
+                                    <option value="#ffffff">Trắng</option>
+                                    <option value="#000000">Đen</option>
+                                    <option value="#ffff00">Vàng</option>
+                                    <option value="#ff0000">Đỏ</option>
+                                    <option value="#00ff00">Xanh lá</option>
+                                    <option value="#0000ff">Xanh dương</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="subtitle-font-settings">
+                            <label>Kiểu chữ:</label>
+                            <div class="style-controls">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="subtitle-bold">
+                                    <span class="checkmark"></span>
+                                    <strong>Đậm</strong>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="subtitle-italic">
+                                    <span class="checkmark"></span>
+                                    <em>Nghiêng</em>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="subtitle-outline" checked>
+                                    <span class="checkmark"></span>
+                                    Viền
+                                </label>
+                            </div>
+                        </div>
+                        <div class="subtitle-font-settings">
+                            <label>Vị trí phụ đề:</label>
+                            <div class="position-controls">
+                                <select id="subtitle-position">
+                                    <option value="bottom">Dưới cùng</option>
+                                    <option value="middle">Giữa màn hình</option>
+                                    <option value="top">Trên cùng</option>
+                                </select>
+                                <div class="position-fine-tune">
+                                    <label>Vi chỉnh (px):</label>
+                                    <input type="number" id="subtitle-offset" value="50" min="0" max="200">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="subtitle-font-settings">
+                            <label>Căn lề:</label>
+                            <select id="subtitle-alignment">
+                                <option value="center">Giữa</option>
+                                <option value="left">Trái</option>
+                                <option value="right">Phải</option>
+                            </select>
+                        </div>
+                        <div class="subtitle-preview">
+                            <h4>Xem trước:</h4>
+                            <div class="preview-box" id="subtitle-preview">
+                                <span id="preview-text">Phụ đề mẫu để xem trước</span>
+                            </div>
+                        </div>
+                        <div class="positioning-controls">
+                            <button class="btn btn-primary" id="toggle-positioning-btn">
+                                <i class="fas fa-crosshairs"></i>
+                                Chỉnh vị trí trên video
+                            </button>
+                            <button class="btn btn-secondary" id="reset-position-btn">
+                                <i class="fas fa-undo"></i>
+                                Reset vị trí
+                            </button>
+                        </div>
+                        <button class="btn btn-secondary" id="apply-subtitle-style-btn">
+                            <i class="fas fa-magic"></i>
+                            Áp dụng cho tất cả
+                        </button>
+                    </div>
+                </div>
+
+                <div class="tool-section">
+                    <h3><i class="fas fa-layer-group"></i> Thanh overlay tùy chỉnh</h3>
+                    <div class="overlay-controls">
+                        <div class="overlay-enable">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="enable-overlay-bar">
+                                <span class="checkmark"></span>
+                                Bật thanh overlay
+                            </label>
+                            <small style="display: block; margin-top: 5px; color: #666;">
+                                Tạo thanh ngang đè lên video (watermark, branding)
+                            </small>
+                        </div>
+                        
+                        <div class="overlay-settings" id="overlay-settings" style="display: none;">
+                            <div class="overlay-dimension-settings">
+                                <label>Kích thước thanh:</label>
+                                <div class="dimension-controls">
+                                    <div class="dimension-group">
+                                        <label>Chiều rộng (%):</label>
+                                        <div class="size-control">
+                                            <input type="range" id="overlay-width" min="10" max="100" value="100">
+                                            <span id="overlay-width-value">100%</span>
+                                        </div>
+                                    </div>
+                                    <div class="dimension-group">
+                                        <label>Chiều cao (px):</label>
+                                        <div class="size-control">
+                                            <input type="range" id="overlay-height" min="20" max="200" value="60">
+                                            <span id="overlay-height-value">60px</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="overlay-appearance-settings">
+                                <label>Màu nền:</label>
+                                <div class="color-control">
+                                    <input type="color" id="overlay-bg-color" value="#000000">
+                                    <select id="overlay-color-preset">
+                                        <option value="#000000">Đen</option>
+                                        <option value="#ffffff">Trắng</option>
+                                        <option value="#ff0000">Đỏ</option>
+                                        <option value="#00ff00">Xanh lá</option>
+                                        <option value="#0000ff">Xanh dương</option>
+                                        <option value="#ffff00">Vàng</option>
+                                        <option value="#ff00ff">Tím</option>
+                                        <option value="#00ffff">Cyan</option>
+                                        <option value="#808080">Xám</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="overlay-appearance-settings">
+                                <label>Độ trong suốt:</label>
+                                <div class="size-control">
+                                    <input type="range" id="overlay-opacity" min="0.1" max="1.0" value="0.8" step="0.1">
+                                    <span id="overlay-opacity-value">80%</span>
+                                </div>
+                                <small>0% = trong suốt hoàn toàn, 100% = đặc</small>
+                            </div>
+                            
+                            <div class="overlay-effects-settings">
+                                <label>Hiệu ứng góc và viền:</label>
+                                <div class="effects-controls">
+                                    <div class="effect-group">
+                                        <label>Bo góc (px):</label>
+                                        <div class="size-control">
+                                            <input type="range" id="overlay-border-radius" min="0" max="50" value="0">
+                                            <span id="overlay-border-radius-value">0px</span>
+                                        </div>
+                                        <small>0 = góc vuông, 50 = góc tròn hoàn toàn</small>
+                                    </div>
+                                    <div class="effect-group">
+                                        <label>Làm mờ góc trái/phải (px):</label>
+                                        <div class="size-control">
+                                            <input type="range" id="overlay-blur" min="0" max="20" value="14">
+                                            <span id="overlay-blur-value">14px</span>
+                                        </div>
+                                        <small>0 = góc sắc nét, 20 = fade mờ dần ở 2 góc</small>
+                                    </div>
+                                    <div class="effect-group">
+                                        <label>Độ dày viền (px):</label>
+                                        <div class="size-control">
+                                            <input type="range" id="overlay-border-width" min="0" max="10" value="0">
+                                            <span id="overlay-border-width-value">0px</span>
+                                        </div>
+                                    </div>
+                                    <div class="effect-group">
+                                        <label>Màu viền:</label>
+                                        <div class="color-control">
+                                            <input type="color" id="overlay-border-color" value="#ffffff">
+                                            <select id="overlay-border-color-preset">
+                                                <option value="#ffffff">Trắng</option>
+                                                <option value="#000000">Đen</option>
+                                                <option value="#ff0000">Đỏ</option>
+                                                <option value="#00ff00">Xanh lá</option>
+                                                <option value="#0000ff">Xanh dương</option>
+                                                <option value="#ffff00">Vàng</option>
+                                                <option value="#ff00ff">Tím</option>
+                                                <option value="#00ffff">Cyan</option>
+                                                <option value="#808080">Xám</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="overlay-shadow-settings">
+                                <label>Hiệu ứng đổ bóng:</label>
+                                <div class="shadow-controls">
+                                    <div class="shadow-group">
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="overlay-enable-shadow">
+                                            <span class="checkmark"></span>
+                                            Bật đổ bóng
+                                        </label>
+                                    </div>
+                                    <div class="shadow-params" id="overlay-shadow-params" style="display: none;">
+                                        <div class="shadow-param">
+                                            <label>Khoảng cách X (px):</label>
+                                            <input type="number" id="overlay-shadow-x" value="2" min="-20" max="20">
+                                        </div>
+                                        <div class="shadow-param">
+                                            <label>Khoảng cách Y (px):</label>
+                                            <input type="number" id="overlay-shadow-y" value="2" min="-20" max="20">
+                                        </div>
+                                        <div class="shadow-param">
+                                            <label>Độ mờ bóng (px):</label>
+                                            <div class="size-control">
+                                                <input type="range" id="overlay-shadow-blur" min="0" max="20" value="5">
+                                                <span id="overlay-shadow-blur-value">5px</span>
+                                            </div>
+                                        </div>
+                                        <div class="shadow-param">
+                                            <label>Màu bóng:</label>
+                                            <input type="color" id="overlay-shadow-color" value="#000000">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="overlay-position-settings">
+                                <label>Vị trí thanh:</label>
+                                <select id="overlay-position">
+                                    <option value="top">Trên cùng</option>
+                                    <option value="middle">Giữa màn hình</option>
+                                    <option value="bottom">Dưới cùng</option>
+                                </select>
+                            </div>
+                            
+                            <div class="overlay-offset-settings">
+                                <label>Vi chỉnh vị trí (px):</label>
+                                <input type="number" id="overlay-offset" value="0" min="-100" max="100">
+                                <small>Điều chỉnh lên (+) hoặc xuống (-) từ vị trí chuẩn</small>
+                            </div>
+                        </div>
+                        
+                        <div class="overlay-preview" id="overlay-preview-section" style="display: none;">
+                            <h4>Xem trước thanh overlay:</h4>
+                            <div class="preview-overlay-box">
+                                <div class="video-preview-mock">
+                                    <div class="overlay-bar-preview" id="overlay-bar-preview">
+                                        Thanh overlay demo
+                                    </div>
+                                    <div class="video-content-mock">
+                                        <i class="fas fa-play-circle"></i>
+                                        <span>Nội dung video</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="overlay-actions">
+                            <button class="btn btn-primary" id="preview-overlay-btn" disabled>
+                                <i class="fas fa-eye"></i>
+                                Xem trước trên video
+                            </button>
+                            <button class="btn btn-secondary" id="reset-overlay-btn">
+                                <i class="fas fa-undo"></i>
+                                Reset về mặc định
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tool-section">
+                    <h3><i class="fas fa-cog"></i> Tùy chọn xuất</h3>
+                    <div class="export-settings">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="include-subtitles" checked>
+                            <span class="checkmark"></span>
+                            Bao gồm phụ đề
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="include-voice">
+                            <span class="checkmark"></span>
+                            Bao gồm lồng tiếng
+                        </label>
+                        <button class="btn btn-success" id="create-final-video-btn" disabled>
+                            <i class="fas fa-play"></i>
+                            Tạo video cuối cùng
+                        </button>
+                        <div class="progress-container" id="final-progress" style="display: none;">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 0%"></div>
+                            </div>
+                            <span class="progress-text">0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tool-section">
+                    <h3><i class="fas fa-tools"></i> Công cụ khác</h3>
+                    <div class="utility-controls">
+                        <button id="manual-cleanup-btn" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-broom"></i> Dọn dẹp file cũ
+                        </button>
+                        <small style="display: block; margin-top: 5px; color: #666;">
+                            Xóa các file tạm thời để giải phóng dung lượng
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Panel - Video Preview -->
+            <div class="center-panel">
+                <div class="video-preview">
+                    <div class="preview-container" id="preview-container">
+                        <div class="no-video-message">
+                            <i class="fas fa-video"></i>
+                            <h3>Chưa có video</h3>
+                            <p>Upload video để bắt đầu chỉnh sửa</p>
+                        </div>
+                        <div class="video-wrapper" id="video-wrapper" style="display: none;">
+                            <video id="video-player" controls>
+                                Your browser does not support the video tag.
+                            </video>
+                            <div class="subtitle-overlay" id="subtitle-overlay">
+                                <div class="subtitle-text" id="subtitle-text" draggable="true">
+                                    Kéo thả để chỉnh vị trí phụ đề
+                                </div>
+                            </div>
+                            <div class="positioning-guide" id="positioning-guide">
+                                <div class="guide-lines">
+                                    <div class="guide-line horizontal top"></div>
+                                    <div class="guide-line horizontal middle"></div>
+                                    <div class="guide-line horizontal bottom"></div>
+                                    <div class="guide-line vertical left"></div>
+                                    <div class="guide-line vertical center"></div>
+                                    <div class="guide-line vertical right"></div>
+                                </div>
+                                <div class="position-info" id="position-info">
+                                    X: 50%, Y: 90%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="video-controls">
+                        <div class="playback-controls">
+                            <button class="control-btn" id="play-pause-btn" disabled>
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <button class="control-btn" id="stop-btn" disabled>
+                                <i class="fas fa-stop"></i>
+                            </button>
+                            <span class="time-display">00:00 / 00:00</span>
+                        </div>
+                        <div class="volume-control">
+                            <i class="fas fa-volume-up"></i>
+                            <input type="range" id="volume-slider" min="0" max="100" value="100">
+                        </div>
+                    </div>
+                    
+                    <!-- Professional Timeline Editor -->
+                    <div class="timeline-editor" id="timeline-editor" style="display: none;">
+                        <div class="timeline-header">
+                            <div class="timeline-title">
+                                <i class="fas fa-film"></i>
+                                <h4>Video Timeline Editor</h4>
+                                <span class="timeline-subtitle">Kéo thả để chỉnh sửa thời gian phụ đề</span>
+                            </div>
+                            <div class="timeline-time-display" id="timeline-current-time">
+                                00:00.000
+                            </div>
+                        </div>
+                        
+                        <div class="timeline-controls">
+                            <div class="timeline-tools">
+                                <button class="tool-btn active" id="select-tool" title="Select Tool">
+                                    <i class="fas fa-mouse-pointer"></i>
+                                </button>
+                                <button class="tool-btn" id="cut-tool" title="Cut Tool">
+                                    <i class="fas fa-cut"></i>
+                                </button>
+                                <button class="btn btn-primary btn-sm" id="load-all-subtitles-btn" title="Load tất cả phụ đề lên timeline">
+                                    <i class="fas fa-list"></i>
+                                    Load All
+                                </button>
+                                <button class="btn btn-secondary btn-sm" id="debug-subtitles-btn" title="Debug subtitle data">
+                                    <i class="fas fa-bug"></i>
+                                    Debug
+                                </button>
+                                <button class="btn btn-warning btn-sm" id="fix-timeline-btn" title="Sửa vị trí timeline">
+                                    <i class="fas fa-wrench"></i>
+                                    Fix Position
+                                </button>
+                            </div>
+                            
+                            <div class="timeline-zoom">
+                                <button class="btn btn-sm" id="zoom-out-btn" title="Thu nhỏ (25-1000%)">-</button>
+                                <span class="zoom-level" id="zoom-level-display">100%</span>
+                                <button class="btn btn-sm" id="zoom-in-btn" title="Phóng to (25-1000%)">+</button>
+                                <button class="btn btn-sm" id="fit-timeline-btn" title="Vừa khít cửa sổ">Fit</button>
+                                <button class="btn btn-sm" id="zoom-reset-btn" title="Reset zoom về 100%">100%</button>
+                            </div>
+                        </div>
+                        
+                        <div class="timeline-container">
+                            <div class="timeline-ruler" id="timeline-ruler">
+                                <!-- Time markers -->
+                            </div>
+                            <div class="timeline-track" id="timeline-track">
+                                <!-- Subtitle blocks -->
+                            </div>
+                            <div class="timeline-playhead" id="timeline-playhead"></div>
+                        </div>
+                        
+                        <div class="timeline-actions">
+                            <button class="btn btn-primary" id="play-from-cursor-btn">
+                                <i class="fas fa-play"></i> Phát từ cursor
+                            </button>
+                            <button class="btn btn-secondary" id="snap-to-grid-btn">
+                                <i class="fas fa-th"></i> Snap Grid
+                            </button>
+                            <button class="btn btn-success" id="save-timeline-btn">
+                                <i class="fas fa-save"></i> Lưu Timeline
+                            </button>
+                        </div>
+                        
+                        <div class="timeline-stats">
+                            <div class="timeline-stat">
+                                <i class="fas fa-list"></i>
+                                <strong id="total-segments">0</strong> phụ đề
+                            </div>
+                            <div class="timeline-stat">
+                                <i class="fas fa-clock"></i>
+                                Tổng: <strong id="total-duration">00:00</strong>
+                            </div>
+                            <div class="timeline-stat">
+                                <i class="fas fa-check-square"></i>
+                                Chọn: <strong id="selected-segment">Chưa chọn</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Text Editor -->
+            <div class="right-panel">
+                <div class="text-editor">
+                    <h3><i class="fas fa-edit"></i> Chỉnh sửa văn bản</h3>
+                    <div class="editor-tabs">
+                        <button class="tab-btn active" data-tab="subtitles">Phụ đề</button>
+                        <button class="tab-btn" data-tab="script">Script lồng tiếng</button>
+                    </div>
+                    
+                    <div class="tab-content">
+                        <div class="tab-panel active" id="subtitles-panel">
+                            <textarea id="subtitles-text" placeholder="Phụ đề sẽ xuất hiện ở đây sau khi tạo..."></textarea>
+                            <div class="editor-actions">
+                                <button class="btn btn-outline" id="download-srt-btn" disabled>
+                                    <i class="fas fa-download"></i>
+                                    Tải .srt
+                                </button>
+                                <button class="btn btn-outline" id="upload-srt-btn">
+                                    <i class="fas fa-upload"></i>
+                                    Upload .srt
+                                </button>
+                                <button class="btn btn-outline" id="toggle-timeline-btn">
+                                    <i class="fas fa-film"></i>
+                                    Show Timeline
+                                </button>
+                                <input type="file" id="srt-input" accept=".srt" style="display: none;">
+                            </div>
+                        </div>
+                        
+                        <div class="tab-panel" id="script-panel">
+                            <textarea id="script-text" placeholder="Nhập văn bản để tạo lồng tiếng..."></textarea>
+                            <div class="editor-actions">
+                                <button class="btn btn-outline" id="preview-voice-btn" disabled>
+                                    <i class="fas fa-play"></i>
+                                    Nghe thử
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-info">
+                <span id="status-text">Sẵn sàng</span>
+            </div>
+            <div class="gpu-info">
+                <i class="fas fa-microchip"></i>
+                <span id="gpu-status">GPU: Đang kiểm tra...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay" style="display: none;">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <h3>Đang xử lý...</h3>
+            <p id="loading-text">Vui lòng đợi trong giây lát</p>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification" style="display: none;">
+        <div class="notification-content">
+            <i class="notification-icon"></i>
+            <span class="notification-text"></span>
+            <button class="notification-close">&times;</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html> 
