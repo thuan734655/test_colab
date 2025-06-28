@@ -70,7 +70,15 @@ repo_dir = os.getenv('REPO_DIR')
 if repo_dir and os.path.exists(os.path.join('/content', repo_dir)):
     app_path = os.path.join('/content', repo_dir, 'main_app.py')
     print(f"Launching app from: {app_path}")
-    # Chạy ứng dụng
+    
+    # Đặt biến môi trường và chạy ứng dụng
+    # Biến này giúp ứng dụng biết nó đang chạy trên Colab để bật ngrok
+    %env RUNNING_IN_COLAB=true
+    
+    # Gợi ý: Để có hiệu suất tốt hơn và không bị giới hạn thời gian của ngrok,
+    # bạn nên thêm NGROK_AUTHTOKEN vào Secrets của Colab.
+    # %env NGROK_AUTHTOKEN=YOUR_NGROK_AUTH_TOKEN_HERE
+
     !python {app_path}
 else:
     print("Lỗi: Không tìm thấy thư mục dự án. Vui lòng chạy lại cell ở 'Bước 2' trước.")

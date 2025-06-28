@@ -2913,13 +2913,23 @@ if __name__ == '__main__':
     logger.info(f"Starting AI Video Editor on device: {device}")
     logger.info(f"GPU Available: {torch.cuda.is_available()}")
 
-    # Check if running in Google Colab for ngrok tunneling
-    if 'google.colab' in sys.modules:
+    # Check if running in Google Colab via environment variable
+    if os.getenv('RUNNING_IN_COLAB') == 'true':
+        logger.info("Colab environment detected. Initializing ngrok...")
         from pyngrok import ngrok
+
+        # It's recommended to set the NGROK authtoken in Colab secrets
+        # to avoid limitations.
+        ngrok_auth_token = os.getenv('NGROK_AUTHTOKEN')
+        if ngrok_auth_token:
+            ngrok.set_auth_token(ngrok_auth_token)
+            logger.info("Ngrok authtoken set.")
+
         public_url = ngrok.connect(port)
-        print(f"🔥 Public URL for Colab: {public_url}")
-        # use_reloader=False is important on Colab
-        app.run(host='0.0.0.0', port=port, debug=True, threaded=True, use_reloader=False)
+        logger.info(f"🔥 Public URL for Colab: {public_url}")
+
+        # Run in production-like mode on Colab (debug=False)
+        app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
     else:
-        print(f"App running locally on http://localhost:{port}")
+        logger.info(f"App running locally on http://localhost:{port}")
         app.run(host='0.0.0.0', port=port, debug=True, threaded=True)
