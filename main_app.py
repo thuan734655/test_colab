@@ -2148,10 +2148,13 @@ def generate_subtitles(task_id):
 
             logger.info(f"Starting transcription on {gpu_manager.get_info()} with {precision} precision.")
 
-            # The `fp16` parameter in `transcribe` can be problematic.
-            # It's more reliable to manage model precision beforehand.
-            # We pass `fp16=False` to avoid whisper's internal auto-casting.
-            result = model.transcribe(audio_path, language=language, verbose=True, fp16=False)
+            # The `fp16` parameter in `transcribe` should match the model's precision.
+            # We dynamically set it based on whether the loaded model is FP16.
+            if language == 'auto':
+                language = None
+            
+            # Pass the correct fp16 flag based on the model's loaded precision
+            result = model.transcribe(audio_path, language=language, verbose=True, fp16=is_fp16)
             
             # Memory cleanup after transcription
             if GPU_CONFIG.get("memory_optimization", True):
@@ -2757,7 +2760,10 @@ def gpu_status():
         'gpu_available': gpu_available,
         'gpu_count': gpu_count,
         'gpu_name': gpu_name,
-        'device': device
+        'device': str(gpu_manager.device),
+        'info': gpu_manager.get_info(),
+        'vram_gb': gpu_manager.get_vram_gb(),
+        'should_use_fp16': gpu_manager.should_use_fp16()
     })
 
 @app.route('/api/cleanup', methods=['POST'])
