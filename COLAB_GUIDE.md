@@ -12,11 +12,33 @@ Dự án đã được refactor để có thể chạy trực tiếp trên môi 
 
 ### Bước 2: Clone dự án
 
-Dán và chạy đoạn mã sau trong cell đầu tiên của Notebook để tải mã nguồn về:
+Dán và chạy đoạn mã sau trong cell đầu tiên của Notebook. Đoạn mã này sẽ tự động clone dự án nếu chưa có, hoặc cập nhật nếu đã có sẵn:
 
 ```python
-!git clone https://github.com/thuan734655/tool_edit_video.git
-%cd tool_edit_video
+import os
+
+# --- Cấu hình ---
+# Bạn có thể thay đổi tên thư mục ở đây nếu muốn, ví dụ: "test_colab"
+repo_dir = "tool_edit_video" 
+# ----------------
+
+repo_url = "https://github.com/thuan734655/tool_edit_video.git"
+
+# Đảm bảo chúng ta đang ở trong thư mục /content
+%cd /content
+
+if not os.path.exists(repo_dir):
+  print(f"Cloning repository into './{repo_dir}'...")
+  !git clone {repo_url} {repo_dir}
+  %cd {repo_dir}
+else:
+  print(f"Directory '{repo_dir}' already exists. Changing directory and pulling latest changes...")
+  %cd {repo_dir}
+  !git pull
+
+# Lưu tên thư mục để sử dụng ở cell sau
+%env REPO_DIR={repo_dir}
+print(f"Project directory set to: /content/{repo_dir}")
 ```
 
 ### Bước 3: Cài đặt môi trường và Dependencies
@@ -40,8 +62,18 @@ print("Hoàn tất cài đặt thư viện.")
 Cuối cùng, chạy cell sau để khởi động máy chủ web. Một URL công khai (public URL) của `ngrok` sẽ được in ra.
 
 ```python
-# Khởi chạy ứng dụng chính
-!python main_app.py
+import os
+
+# Lấy lại tên thư mục từ biến môi trường đã lưu ở cell trên
+repo_dir = os.getenv('REPO_DIR')
+
+if repo_dir and os.path.exists(os.path.join('/content', repo_dir)):
+    app_path = os.path.join('/content', repo_dir, 'main_app.py')
+    print(f"Launching app from: {app_path}")
+    # Chạy ứng dụng
+    !python {app_path}
+else:
+    print("Lỗi: Không tìm thấy thư mục dự án. Vui lòng chạy lại cell ở 'Bước 2' trước.")
 ```
 
 ### Bước 5: Truy cập ứng dụng
