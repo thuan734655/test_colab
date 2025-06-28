@@ -9,6 +9,7 @@ from flask import Flask, request, jsonify, render_template, send_file, send_from
 from flask_cors import CORS
 import whisper
 import torch
+import numpy as np
 import os
 import sys
 import tempfile
