@@ -2148,21 +2148,27 @@ def generate_subtitles(task_id):
 
             logger.info(f"Starting transcription on {gpu_manager.get_info()} with {precision} precision.")
 
-            # The `fp16` parameter in `transcribe` should match the model's precision.
-            # We dynamically set it based on whether the loaded model is FP16.
+            # --- Start of Comprehensive Bugfix for FP16 dtype mismatch ---
+
+            # 1. Load audio and convert its dtype to match the model's precision.
+            # This is the core fix for the "expected scalar type Float but found Half" error,
+            # bypassing a bug in the Whisper library's internal data handling.
+            logger.info("Loading audio for transcription...")
+            audio_input = whisper.load_audio(audio_path)
+            if is_fp16:
+                logger.info("Model is FP16. Converting audio input to float16 to prevent dtype mismatch.")
+                audio_input = audio_input.astype(np.float16)
+
+            # 2. Handle language detection using the pre-processed audio.
             transcription_language = language
-            
-            # Bugfix for Whisper's language detection with FP16 models.
-            # Manually detect language to avoid internal dtype mismatch error.
             if transcription_language == 'auto' or transcription_language is None:
-                logger.info("Performing manual language detection for FP16 model...")
+                logger.info("Performing manual language detection...")
                 try:
-                    # Load audio and create a mel spectrogram for detection
-                    audio_for_detection = whisper.load_audio(audio_path)
-                    audio_for_detection = whisper.pad_or_trim(audio_for_detection)
+                    # Use a trimmed portion of the pre-loaded audio for detection
+                    audio_for_detection = whisper.pad_or_trim(audio_input)
                     mel = whisper.log_mel_spectrogram(audio_for_detection).to(model.device)
 
-                    # Convert mel to fp16 if the model is fp16
+                    # Ensure mel spectrogram matches model dtype for detection
                     if is_fp16:
                         mel = mel.half()
 
@@ -2172,10 +2178,13 @@ def generate_subtitles(task_id):
                     logger.info(f"Language manually detected: {transcription_language}")
                 except Exception as e:
                     logger.error(f"Manual language detection failed: {e}. Proceeding without language hint.")
-                    transcription_language = None # Let whisper try again, might fail
-            
-            # Pass the correct fp16 flag and the detected language
-            result = model.transcribe(audio_path, language=transcription_language, verbose=True, fp16=is_fp16)
+                    transcription_language = None
+
+            # 3. Transcribe using the correctly-typed audio array instead of the file path.
+            logger.info(f"Starting transcription with language: {transcription_language or 'auto'}")
+            result = model.transcribe(audio_input, language=transcription_language, verbose=True, fp16=is_fp16)
+
+            # --- End of Comprehensive Bugfix ---
             
             # Memory cleanup after transcription
             if GPU_CONFIG.get("memory_optimization", True):
