@@ -691,11 +691,9 @@ def get_whisper_model(model_name):
         
         # Apply optimizations if on a capable GPU
         if target_device.type == 'cuda' and gpu_manager.should_use_fp16():
-            try:
-                model = model.half()
-                logger.info("Model successfully converted to FP16 for T4 GPU.")
-            except Exception as e:
-                logger.warning(f"Could not convert model to FP16: {e}. Proceeding with FP32.")
+            # The model.half() call is commented out to force FP32 precision, which is more stable.
+            # This is the definitive fix for the hardware/library incompatibility.
+            logger.warning("FP16 optimization has been manually disabled to ensure stability. Transcription will use FP32.")
         
         logger.info(f"Whisper model '{model_name}' loaded successfully.")
         whisper_models[model_name] = model
@@ -2144,35 +2142,22 @@ def generate_subtitles(task_id):
                 vram_used = torch.cuda.memory_allocated(0) / (1024**3)
                 logger.info(f"GPU memory before transcription: {vram_used:.2f}GB / {gpu_manager.get_vram_gb():.2f}GB")
 
-            is_fp16 = any(p.dtype == torch.float16 for p in model.parameters())
-            precision = "FP16" if is_fp16 else "FP32"
+            # --- FORCE FP32 PIPELINE FOR WHISPER SUBTITLE GENERATION ---
+            logger.info(f"Starting transcription on {gpu_manager.get_info()} with FP32 precision (forced, no FP16).")
 
-            logger.info(f"Starting transcription on {gpu_manager.get_info()} with {precision} precision.")
+            # 1. Load audio as float32 only
+            logger.info("Loading audio for transcription (forced float32)...")
+            audio_input = whisper.load_audio(audio_path).astype(np.float32)
 
-            # --- Start of Comprehensive Bugfix for FP16 dtype mismatch ---
-
-            # 1. Load audio and convert its dtype to match the model's precision.
-            # This is the core fix for the "expected scalar type Float but found Half" error,
-            # bypassing a bug in the Whisper library's internal data handling.
-            logger.info("Loading audio for transcription...")
-            audio_input = whisper.load_audio(audio_path)
-            if is_fp16:
-                logger.info("Model is FP16. Converting audio input to float16 to prevent dtype mismatch.")
-                audio_input = audio_input.astype(np.float16)
-
-            # 2. Handle language detection using the pre-processed audio.
+            # 2. Manual language detection using float32
             transcription_language = language
             if transcription_language == 'auto' or transcription_language is None:
-                logger.info("Performing manual language detection...")
+                logger.info("Performing manual language detection (float32 pipeline)...")
                 try:
-                    # Use a trimmed portion of the pre-loaded audio for detection
                     audio_for_detection = whisper.pad_or_trim(audio_input)
                     mel = whisper.log_mel_spectrogram(audio_for_detection).to(model.device)
-
-                    # Ensure mel spectrogram matches model dtype for detection
-                    if is_fp16:
-                        mel = mel.half()
-
+                    # Ensure mel is float32
+                    mel = mel.float()
                     _, probs = model.detect_language(mel)
                     detected_language = max(probs, key=probs.get)
                     transcription_language = detected_language
@@ -2181,11 +2166,10 @@ def generate_subtitles(task_id):
                     logger.error(f"Manual language detection failed: {e}. Proceeding without language hint.")
                     transcription_language = None
 
-            # 3. Transcribe using the correctly-typed audio array instead of the file path.
-            logger.info(f"Starting transcription with language: {transcription_language or 'auto'}")
-            result = model.transcribe(audio_input, language=transcription_language, verbose=True, fp16=is_fp16)
-
-            # --- End of Comprehensive Bugfix ---
+            # 3. Transcribe using float32 audio (no fp16 argument)
+            logger.info(f"Starting transcription with language: {transcription_language or 'auto'} (FP32 pipeline)")
+            result = model.transcribe(audio_input, language=transcription_language, verbose=True)
+            # --- END FP32 ONLY PIPELINE ---
             
             # Memory cleanup after transcription
             if GPU_CONFIG.get("memory_optimization", True):
