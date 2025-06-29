@@ -1205,14 +1205,15 @@ def combine_video_audio_subtitles(video_path, audio_path, srt_path, output_path,
             import shutil
             shutil.copy2(srt_path, working_srt)
             
-            # Try ASS first
+            # Try ASS first with Vietnamese font
             ass_result = subprocess.run(['ffmpeg', '-i', working_srt, working_ass, '-y'], capture_output=True)
             subtitle_success = False
             
             if ass_result.returncode == 0 and os.path.exists(working_ass):
+                # Use Arial Unicode MS font which supports Vietnamese characters
                 cmd = [
                     'ffmpeg', '-i', video_path,
-                    '-vf', f'ass={working_ass}',
+                    '-vf', f'ass={working_ass},subtitles=fontfile=Arial Unicode MS',
                     '-c:a', 'copy',
                     output_path, '-y'
                 ]
@@ -1225,9 +1226,10 @@ def combine_video_audio_subtitles(video_path, audio_path, srt_path, output_path,
             # Fallback: Try direct SRT
             if not subtitle_success:
                 logger.info("🔄 Fallback: Trying direct SRT...")
+                # Use Arial Unicode MS font for SRT subtitles
                 cmd = [
                     'ffmpeg', '-i', video_path,
-                    '-vf', f'subtitles={working_srt}',
+                    '-vf', f'subtitles={working_srt}:force_style="FontName=Arial Unicode MS"',
                     '-c:a', 'copy',
                     output_path, '-y'
                 ]
