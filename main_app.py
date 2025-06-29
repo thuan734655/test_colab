@@ -11,6 +11,10 @@ import whisper
 import torch
 import numpy as np
 import os
+
+# --- Ensure GPU_CONFIG is always defined ---
+GPU_CONFIG = {"memory_optimization": True}
+
 import sys
 import tempfile
 import json
